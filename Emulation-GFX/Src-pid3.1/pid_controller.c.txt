@@ -1,0 +1,224 @@
+ // ************************************************ ********************************
+ // Arduino PID Library Version 1.0.1 Modified Version for C -
+ // Незалежний від платформи
+ // --
+ // Редакція: 1.1
+ // --
+ // Опис: модуль ПІД-регулятора, спочатку призначений для Arduino
+ // незалежний від платформи.  Деякі невеликі помилки в оригінальному коді Arduino
+ // також були виправлені.
+ // --
+ // Для детального пояснення теорії цієї бібліотеки перейдіть до:
+ // http:// brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-introduction/
+ // --
+ // Редакції можна знайти тут:
+ // https:// github.com/tcleg
+ // --
+ // Змінено: Трентом Клеггорном, <trentoncleghorn@gmail.com>
+ // --
+ // Авторське право (C) Бретт Борегард, <br3ttb@gmail.com>
+ // --
+ // Ліцензія GPLv3
+ // --
+ // Ця програма є безкоштовним програмним забезпеченням: ви можете повторно поширювати її та/або змінювати
+ // умови Загальної публічної ліцензії GNU, опублікованої Вільним програмним забезпеченням
+ // Foundation, або версія 3 Ліцензії, або (на ваш вибір) будь-яка пізніше
+ // версія.
+ // --
+ // Ця програма розповсюджується в надії, що вона буде корисною, але БЕЗ НІКОГО
+ // ГАРАНТІЯ;  навіть без неявної гарантії ТОВАРНОЇ ЦІННОСТІ чи ПРИДАТНОСТІ ДЛЯ A
+ // КОНКРЕТНЕ ПРИЗНАЧЕННЯ.  Додаткову інформацію див. у Загальній публічній ліцензії GNU.
+ // --
+ // Ви мали отримати копію GNU General Public License разом із
+ // ця програма.  Якщо ні, перегляньте <http:// www.gnu.org/licenses/>.
+ // ************************************************ ********************************
+ // --
+ // ************************************************ ********************************
+ // Заголовки
+ // ************************************************ ********************************
+ #include "pid_controller.h"
+ // --
+ // ************************************************ ********************************
+ // Макроси та глобали
+ // ************************************************ ********************************
+ #define CONSTRAIN(x,lower,upper) ((x)<(lower)?(lower):((x)>(upper)?(upper):(x)))
+ // --
+ // ************************************************ ********************************
+ // Функції
+ // ************************************************ ********************************
+ void PIDInit(PIDControl *pid, float kp, float ki, float kd,
+              float sampleTimeSeconds, float minOutput, float maxOutput,
+              Режим PIDMode, PIDDirection controllerDirection)
+ {
+   pid->controllerDirection = controllerDirection;
+   pid->mode = режим;
+   pid->iTerm = 0,0f;
+   pid->input = 0.0f;
+   pid->lastInput = 0.0f;
+   pid->вихід = 0.0f;
+   pid->setpoint = 0,0f;
+   // --
+   if(sampleTimeSeconds > 0.0f)
+   {
+     pid->sampleTime = sampleTimeSeconds;
+   }
+   інше
+   {
+     // Якщо переданий параметр був неправильним, встановіть 1 секунду
+     pid->sampleTime = 1.0f;
+   }
+   // --
+   PIDOutputLimitsSet(pid, minOutput, maxOutput);
+   PIDTuningsSet(pid, kp, ki, kd);
+ }
+
+ bool
+ PIDCompute(PIDControl *pid)
+ {
+   float помилка, dInput;
+   // --
+   if(pid->mode == MANUAL)
+   {
+     повернути false;
+   }
+   // --
+   // Класичний термін помилки PID
+   помилка = (pid->setpoint) - (pid->input);
+   // --
+   // Обчислити інтегральний член окремо заздалегідь
+   pid->iTerm += (pid->alteredKi) * помилка;
+   // --
+   // Обмеження інтегратора, щоб переконатися, що він не перевищує вихідних меж
+   pid->iTerm = CONSTRAIN( (pid->iTerm), (pid->outMin), (pid->outMax) );
+   // --
+   // Візьміть "похідну від вимірювання" замість "похідну від помилки"
+   dInput = (pid->input) - (pid->lastInput);
+   // --
+   // Проведіть усі терміни разом, щоб отримати загальний результат
+   pid->output = (pid->alteredKp) * error + (pid->iTerm) - (pid->alteredKd) * dInput;
+   // --
+   // Зв'язати вихід
+   pid->output = CONSTRAIN( (pid->output), (pid->outMin), (pid->outMax) );
+   // --
+   // Зробити поточний вхід попереднім
+   pid->lastInput = pid->input;
+   // --
+   повернути істину;
+ }
+
+ недійсний
+ PIDModeSet(PIDControl *pid, режим PIDMode)
+ {
+   // Якщо режим змінився з MANUAL на AUTOMATIC
+   if(pid->mode != mode && mode == AUTOMATIC)
+   {
+     // Ініціалізація кількох параметрів PID до нових значень
+     pid->iTerm = pid->вихід;
+     pid->lastInput = pid->input;
+     // --
+     // Обмеження інтегратора, щоб переконатися, що він не перевищує вихідних меж
+     pid->iTerm = CONSTRAIN( (pid->iTerm), (pid->outMin), (pid->outMax) );
+   }
+   // --
+   pid->mode = режим;
+ }
+
+ недійсний
+ PIDOutputLimitsSet(PIDControl *pid, float min, float max)
+ {
+   // Перевірка правильності параметрів
+   if(min >= max)
+   {
+     повернення;
+   }
+   // --
+   // Збереження параметрів
+   pid->outMin = min;
+   pid->outMax = max;
+   // --
+   // Якщо в автоматичному режимі, застосувати нові обмеження
+   if(pid->mode == AUTOMATIC)
+   {
+     pid->вихід = CONSTRAIN(pid->вихід, min, max);
+     pid->iTerm = CONSTRAIN(pid->iTerm, min, max);
+   }
+ }
+
+ недійсний
+ PIDTuningsSet(PIDControl *pid, float kp, float ki, float kd)
+ {
+   // Перевірка правильності параметрів
+   якщо (kp < 0,0f || ki < 0,0f || kd < 0,0f)
+   {
+     повернення;
+   }
+   // --
+   // Збережіть параметри для відображення
+   pid->dispKp = kp;
+   pid->dispKi = ki;
+   pid->dispKd = kd;
+   // --
+   // Змінити параметри для PID
+   pid->alteredKp = kp;
+   pid->alteredKi = ki * pid->sampleTime;
+   pid->alteredKd = kd / pid->sampleTime;
+   // --
+   // За потреби застосувати зворотний напрямок до змінених значень
+   if(pid->controllerDirection == REVERSE)
+   {
+     pid->alteredKp = -(pid->alteredKp);
+     pid->alteredKi = -(pid->alteredKi);
+     pid->alteredKd = -(pid->alteredKd);
+   }
+ }
+
+ недійсний
+ PIDTuningKpSet(PIDControl *pid, float kp)
+ {
+   PIDTuningsSet(pid, kp, pid->dispKi, pid->dispKd);
+ }
+
+ недійсний
+ PIDTuningKiSet(PIDControl *pid, float ki)
+ {
+   PIDTuningsSet(pid, pid->dispKp, ki, pid->dispKd);
+ }
+
+ недійсний
+ PIDTuningKdSet(PIDControl *pid, float kd)
+ {
+   PIDTuningsSet(pid, pid->dispKp, pid->dispKi, kd);
+ }
+
+ недійсний
+ PIDControllerDirectionSet(PIDControl *pid, PIDDirection controllerDirection)
+ {
+   // Якщо в автоматичному режимі, і відчуття напрямку контролера змінюється
+   if(pid->mode == AUTOMATIC && controllerDirection == REVERSE)
+   {
+     // Зворотний напрямок констант підсилення ПІД
+     pid->alteredKp = -(pid->alteredKp);
+     pid->alteredKi = -(pid->alteredKi);
+     pid->alteredKd = -(pid->alteredKd);
+   }
+   // --
+   pid->controllerDirection = controllerDirection;
+ }
+
+ недійсний
+ PIDSampleTimeSet(PIDControl *pid, float sampleTimeSeconds)
+ {
+   коефіцієнт плавання;
+   // --
+   if(sampleTimeSeconds > 0.0f)
+   {
+     // Знайти коефіцієнт зміни та застосувати до змінених значень
+     співвідношення = sampleTimeSeconds / pid->sampleTime;
+     pid->alteredKi *= співвідношення;
+     pid->alteredKd /= співвідношення;
+     // --
+     // Збереження нового часу вибірки
+     pid->sampleTime = sampleTimeSeconds;
+   }
+ }
+
